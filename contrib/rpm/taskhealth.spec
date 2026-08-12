@@ -67,7 +67,6 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_libdir}/libtaskhealth.so.0.1.0
 
 %files devel
-%doc doc/DESIGN.md doc/DETAILED_DESIGN.md
 %{_libdir}/libtaskhealth.a
 %{_libdir}/libtaskhealth.so
 %{_libdir}/pkgconfig/taskhealth.pc

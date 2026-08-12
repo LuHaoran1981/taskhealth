@@ -121,7 +121,7 @@ taskhealth.pc: taskhealth.pc.in
 dist: clean
 	mkdir -p taskhealth-$(VERSION)
 	cp -r $(SRCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib Makefile \
-		taskhealth.pc.in LICENSE README.md doc \
+		taskhealth.pc.in LICENSE README.md \
 		taskhealth-$(VERSION)/
 	tar czf $(TARNAME) taskhealth-$(VERSION)
 	rm -rf taskhealth-$(VERSION)

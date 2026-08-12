@@ -94,8 +94,6 @@ See [demo/demo.c](demo/demo.c) for usage; API docs are in
 
 | Document 文档 | Description 说明 |
 |------|------|
-| [doc/DESIGN.md](doc/DESIGN.md) | Architecture design 架构设计 |
-| [doc/DETAILED_DESIGN.md](doc/DETAILED_DESIGN.md) | Detailed design 详细设计 |
 | [soft_copyright/用户手册.md](soft_copyright/用户手册.md) | User manual 用户手册 |
 
 ## Packaging 打包

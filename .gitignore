@@ -19,6 +19,12 @@ soft_copyright/taskhealth_source_code.txt
 soft_copyright/taskhealth_source_code.docx
 soft_copyright/用户手册.docx
 
+# Release artifacts
+*.tar.gz
+
+# Local design docs (not published)
+doc/
+
 # Editor / OS
 *.swp
 *.swo
