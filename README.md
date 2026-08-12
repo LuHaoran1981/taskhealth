@@ -90,12 +90,6 @@ See [demo/demo.c](demo/demo.c) for usage; API docs are in
 
 业务代码示例见 [demo/demo.c](demo/demo.c)，API 文档见 [src/taskhealth.h](src/taskhealth.h)。
 
-## Documentation 文档
-
-| Document 文档 | Description 说明 |
-|------|------|
-| [soft_copyright/用户手册.md](soft_copyright/用户手册.md) | User manual 用户手册 |
-
 ## Packaging 打包
 
 ```sh

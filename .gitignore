@@ -14,16 +14,12 @@ taskhealth.pc
 *.gcov
 coverage/
 
-# Generated soft copyright docs
-soft_copyright/taskhealth_source_code.txt
-soft_copyright/taskhealth_source_code.docx
-soft_copyright/用户手册.docx
-
 # Release artifacts
 *.tar.gz
 
-# Local design docs (not published)
+# Local-only (not published): design docs & soft copyright materials
 doc/
+soft_copyright/
 
 # Editor / OS
 *.swp
