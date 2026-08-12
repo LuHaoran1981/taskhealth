@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) all-full
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp prefix=/usr
+
+override_dh_install:
+	dh_install -ptaskhealthd \
+		usr/sbin/taskhealthd
+	dh_install -plibtaskhealth0 \
+		usr/lib/libtaskhealth.so.0 \
+		usr/lib/libtaskhealth.so.0.1.0
+	dh_install -plibtaskhealth-dev \
+		usr/lib/libtaskhealth.a \
+		usr/lib/libtaskhealth.so \
+		usr/lib/pkgconfig/taskhealth.pc \
+		usr/include/taskhealth.h \
+		usr/include/taskhealth_mutex.h \
+		usr/include/protocol.h
+	dh_install -ptaskhealth-demo \
+		usr/bin/demo

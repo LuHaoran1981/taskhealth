@@ -1,0 +1,48 @@
+Source: taskhealth
+Section: libs
+Priority: optional
+Maintainer: Lu Haoran <luhaoran@symthosm.com>
+Build-Depends: debhelper-compat (= 13), gcc, make
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/symthosm/taskhealth
+Vcs-Git: https://github.com/symthosm/taskhealth.git
+Vcs-Browser: https://github.com/symthosm/taskhealth
+
+Package: taskhealthd
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Linux thread health monitoring daemon
+ TaskHealth is a client-daemon thread health monitor for Linux user-space,
+ inspired by QNX HAM. It detects unexpected thread exits, futex deadlocks,
+ and lock-wait timeouts across multiple processes.
+ .
+ This package contains the taskhealthd daemon.
+
+Package: libtaskhealth0
+Architecture: linux-any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Linux thread health monitoring client library
+ TaskHealth client library linked into business processes. Communicates
+ with taskhealthd via Unix domain socket (SOCK_SEQPACKET) to register
+ threads, send heartbeats, and receive alerts.
+ .
+ This package contains the shared library.
+
+Package: libtaskhealth-dev
+Architecture: linux-any
+Multi-Arch: same
+Depends: libtaskhealth0 (= ${binary:Version}), ${misc:Depends}
+Description: Linux thread health monitoring library (development files)
+ TaskHealth client library development files.
+ .
+ This package contains the static library, shared library symlink,
+ pkg-config file, and header files.
+
+Package: taskhealth-demo
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libtaskhealth0
+Description: Linux thread health monitoring (demo program)
+ TaskHealth demo demonstrating auto-name, unexpected exit, deadlock,
+ normal heartbeat, and lock-wait timeout scenarios.

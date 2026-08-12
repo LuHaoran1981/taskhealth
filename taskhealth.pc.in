@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=@libdir@
+includedir=@includedir@
+
+Name: taskhealth
+Description: Linux user-space thread health monitoring library
+Version: @VERSION@
+Libs: -L${libdir} -ltaskhealth
+Cflags: -I${includedir}

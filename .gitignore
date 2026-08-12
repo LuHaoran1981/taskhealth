@@ -1,0 +1,27 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.so.*
+taskhealthd
+demo/demo
+test/test
+taskhealth.pc
+
+# Coverage
+*.gcno
+*.gcda
+*.gcov
+coverage/
+
+# Generated soft copyright docs
+soft_copyright/taskhealth_source_code.txt
+soft_copyright/taskhealth_source_code.docx
+soft_copyright/用户手册.docx
+
+# Editor / OS
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
