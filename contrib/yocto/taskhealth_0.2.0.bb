@@ -12,7 +12,7 @@ LIC_FILES_CHKSUM = "file://LICENSE.MIT;md5=e60ba40de4a2b0d6e400a41ab5031821 \
 SECTION = "libs"
 
 SRC_URI = "https://github.com/LuHaoran1981/taskhealth/releases/download/v${PV}/taskhealth-${PV}.tar.gz"
-SRC_URI[sha256sum] = "<fill-in-on-release>"
+SRC_URI[sha256sum] = "2340bd49ae1550f0d0a49ef80b2fdb4cb5931d7100766735fcf76e68754c5fd9"
 
 S = "${WORKDIR}/taskhealth-${PV}"
 
