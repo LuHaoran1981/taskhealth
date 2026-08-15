@@ -21,6 +21,6 @@ override_dh_install:
 		usr/lib/pkgconfig/taskhealth.pc \
 		usr/include/taskhealth.h \
 		usr/include/taskhealth_mutex.h \
-		usr/include/protocol.h
+		usr/include/taskhealth/protocol.h
 	dh_install -ptaskhealth-demo \
-		usr/bin/demo
+		usr/bin/taskhealth-demo

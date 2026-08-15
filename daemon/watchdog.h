@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (C) 2026 Shanghai Symthosm Intelligent Technology Co., Ltd.
  *                   上海先道智觉科技有限责任公司
