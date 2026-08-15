@@ -4,15 +4,29 @@
  * Author: Lu Haoran <luhaoran@symthosm.com>
  *         芦浩然
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #define _GNU_SOURCE
 #include "taskhealth.h"
-#include "protocol.h"
+#include "taskhealth/protocol.h"
+#include "taskhealth_internal.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -22,10 +36,15 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 #define DEFAULT_SOCK_PATH  "/tmp/taskhealth.sock"
+
+/* Bound the synchronous register response wait so a hung daemon cannot
+ * block the caller indefinitely. */
+#define REGISTER_RESPONSE_TIMEOUT_SEC 2
 
 /* ── global client state ────────────────────────────────────────────── */
 
@@ -86,12 +105,20 @@ static int do_connect(const char *path)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+	if (strlen(path) >= sizeof(addr.sun_path)) {
+		close(fd);
+		return -1;
+	}
+	memcpy(addr.sun_path, path, strlen(path) + 1);
 
 	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		close(fd);
 		return -1;
 	}
+
+	struct timeval tv = { .tv_sec = REGISTER_RESPONSE_TIMEOUT_SEC, .tv_usec = 0 };
+	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
 	return fd;
 }
 
@@ -242,4 +269,65 @@ void taskhealth_heartbeat(void)
 		g_client.sock_fd = -1;
 		g_client.initialized = false;
 	}
+}
+
+/* ── internal mutex-name hooks (called by taskhealth_mutex.c) ───────── */
+
+void taskhealth_mutex_notify_register(uintptr_t futex_addr, const char *name)
+{
+	msg_body_mutex_register_t body;
+	taskhealth_msg_hdr_t hdr;
+
+	if (!g_client.initialized)
+		return;
+
+	memset(&body, 0, sizeof(body));
+	body.pid = g_client.pid;
+	body.futex_addr = (uint64_t)futex_addr;
+	if (name)
+		strncpy(body.name, name, sizeof(body.name) - 1);
+
+	hdr = build_hdr(MSG_MUTEX_REGISTER, sizeof(body));
+	send_msg(g_client.sock_fd, &hdr, &body);
+}
+
+void taskhealth_mutex_notify_unregister(uintptr_t futex_addr)
+{
+	msg_body_mutex_unregister_t body;
+	taskhealth_msg_hdr_t hdr;
+
+	if (!g_client.initialized)
+		return;
+
+	body.pid = g_client.pid;
+	body.futex_addr = (uint64_t)futex_addr;
+
+	hdr = build_hdr(MSG_MUTEX_UNREGISTER, sizeof(body));
+	send_msg(g_client.sock_fd, &hdr, &body);
+}
+
+static void mutex_notify_lock_state(uint8_t type, uintptr_t futex_addr)
+{
+	msg_body_lock_state_t body;
+	taskhealth_msg_hdr_t hdr;
+
+	if (!g_client.initialized)
+		return;
+
+	body.pid = g_client.pid;
+	body.tid = (int32_t)get_tid();
+	body.futex_addr = (uint64_t)futex_addr;
+
+	hdr = build_hdr(type, sizeof(body));
+	send_msg(g_client.sock_fd, &hdr, &body);
+}
+
+void taskhealth_mutex_notify_lock_wait(uintptr_t futex_addr)
+{
+	mutex_notify_lock_state(MSG_LOCK_WAIT, futex_addr);
+}
+
+void taskhealth_mutex_notify_lock_acquired(uintptr_t futex_addr)
+{
+	mutex_notify_lock_state(MSG_LOCK_ACQUIRED, futex_addr);
 }

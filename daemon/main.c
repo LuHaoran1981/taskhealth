@@ -32,12 +32,14 @@ static struct {
 	int max_entries;
 	bool daemonize;
 	char alert_script[256];
+	char log_file[256];
 } g_cfg = {
 	.socket_path       = DEFAULT_SOCK_PATH,
 	.check_interval_ms = 1000,
 	.max_entries       = 4096,
 	.daemonize         = false,
 	.alert_script      = "",
+	.log_file          = "",
 };
 
 static void print_usage(const char *prog)
@@ -49,6 +51,7 @@ static void print_usage(const char *prog)
 		"  -m, --max-entries N  Max monitored threads (default: 4096)\n"
 		"  -d, --daemonize      Run as daemon\n"
 		"  -a, --alert-script   Alert script path\n"
+		"  -l, --log-file       Alert log file path\n"
 		"  -v, --version        Print version and exit\n"
 		"  -h, --help           Print this help\n",
 		prog, DEFAULT_SOCK_PATH);
@@ -62,13 +65,14 @@ static int parse_args(int argc, char *argv[])
 		{ "max-entries",  required_argument, 0, 'm' },
 		{ "daemonize",    no_argument,       0, 'd' },
 		{ "alert-script", required_argument, 0, 'a' },
+		{ "log-file",     required_argument, 0, 'l' },
 		{ "version",      no_argument,       0, 'v' },
 		{ "help",         no_argument,       0, 'h' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
 
-	while ((c = getopt_long(argc, argv, "s:i:m:da:vh",
+	while ((c = getopt_long(argc, argv, "s:i:m:da:l:vh",
 				 long_opts, NULL)) != -1) {
 		switch (c) {
 		case 's':
@@ -93,6 +97,10 @@ static int parse_args(int argc, char *argv[])
 		case 'a':
 			strncpy(g_cfg.alert_script, optarg,
 				sizeof(g_cfg.alert_script) - 1);
+			break;
+		case 'l':
+			strncpy(g_cfg.log_file, optarg,
+				sizeof(g_cfg.log_file) - 1);
 			break;
 		case 'v':
 			printf("taskhealthd %s\n", TASKHEALTH_VERSION);
@@ -121,11 +129,15 @@ static void daemonize(void)
 	if (pid > 0) _exit(0);
 
 	umask(022);
-	chdir("/");
+	if (chdir("/") < 0) {
+		perror("chdir");
+		exit(1);
+	}
 
-	freopen("/dev/null", "r", stdin);
-	freopen("/dev/null", "w", stdout);
-	freopen("/dev/null", "w", stderr);
+	if (freopen("/dev/null", "r", stdin) == NULL ||
+	    freopen("/dev/null", "w", stdout) == NULL ||
+	    freopen("/dev/null", "w", stderr) == NULL)
+		exit(1);
 }
 
 static void stop_handler(int sig)
@@ -177,7 +189,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	alert_init(g_cfg.alert_script);
+	alert_init(g_cfg.alert_script, g_cfg.log_file);
 
 	if (server_init(g_cfg.socket_path) < 0) {
 		fprintf(stderr, "[taskhealthd] server init failed (socket=%s)\n",

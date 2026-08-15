@@ -3,7 +3,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Linux thread health monitoring (client-daemon)
 
-License:        GPL-2.0-or-later
+License:        MIT AND GPL-2.0-or-later
 URL:            https://github.com/symthosm/taskhealth
 Source0:        %{name}-%{version}.tar.gz
 
@@ -23,7 +23,7 @@ Summary:  TaskHealth monitoring daemon
 %description -n taskhealthd
 The taskhealthd daemon — Unix domain socket server that monitors registered
 threads across processes. Runs the watchdog detection engine and outputs
-alerts to stderr, syslog, or an external script.
+alerts to stderr, syslog, a log file, or an external script.
 
 %package -n libtaskhealth0
 Summary:  TaskHealth client shared library
@@ -63,16 +63,18 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_sbindir}/taskhealthd
 
 %files -n libtaskhealth0
+%license LICENSE.MIT
 %{_libdir}/libtaskhealth.so.0
 %{_libdir}/libtaskhealth.so.0.1.0
 
 %files devel
+%license LICENSE.MIT
 %{_libdir}/libtaskhealth.a
 %{_libdir}/libtaskhealth.so
 %{_libdir}/pkgconfig/taskhealth.pc
 %{_includedir}/taskhealth.h
 %{_includedir}/taskhealth_mutex.h
-%{_includedir}/protocol.h
+%{_includedir}/taskhealth/protocol.h
 
 %files demo
 %{_bindir}/taskhealth-demo

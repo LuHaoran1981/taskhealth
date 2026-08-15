@@ -12,7 +12,7 @@
 
 #define _GNU_SOURCE
 #include "server.h"
-#include "../src/protocol.h"
+#include "taskhealth/protocol.h"
 #include "registry.h"
 
 #include <errno.h>
@@ -66,28 +66,33 @@ static int send_response(int fd, uint8_t status)
 
 static void handle_register(int fd, const msg_body_register_t *body)
 {
+	Entry *e = NULL;
+	registry_add_result_t rc;
+
 	if (body->gap_ms < 0 || body->lock_hold_ms < 0) {
 		send_response(fd, MSG_STATUS_INVALID_ARG);
 		return;
 	}
 
 	registry_lock();
-	Entry *e = registry_add(body, fd);
+	rc = registry_add(body, fd, &e);
+	if (rc == REGISTRY_ADD_OK)
+		e->last_heartbeat_ns = now_ns();
 	registry_unlock();
 
-	if (!e) {
-		/* check if already registered */
-		send_response(fd, MSG_STATUS_ALREADY_REG);
-	} else {
-		/* set initial heartbeat timestamp */
-		registry_lock();
-		e->last_heartbeat_ns = now_ns();
-		registry_unlock();
-
-		if (fd >= 0 && fd < MAX_CLIENTS)
-			g_fd2pid[fd] = body->pid;
-
+	switch (rc) {
+	case REGISTRY_ADD_OK:
 		send_response(fd, MSG_STATUS_OK);
+		break;
+	case REGISTRY_ADD_DUPLICATE:
+		send_response(fd, MSG_STATUS_ALREADY_REG);
+		break;
+	case REGISTRY_ADD_FULL:
+		send_response(fd, MSG_STATUS_TABLE_FULL);
+		break;
+	default:
+		send_response(fd, MSG_STATUS_ERROR);
+		break;
 	}
 }
 
@@ -105,13 +110,56 @@ static void handle_unregister(const msg_body_unregister_t *body)
 	registry_unlock();
 }
 
+static void handle_mutex_register(int fd, const msg_body_mutex_register_t *body)
+{
+	/* anti-spoof: body->pid must match the connection's SO_PEERCRED pid */
+	if (fd >= 0 && fd < MAX_CLIENTS && g_fd2pid[fd] != 0 &&
+	    g_fd2pid[fd] != body->pid)
+		return;
+
+	registry_mutex_add(fd, body->futex_addr, body->name);
+}
+
+static void handle_mutex_unregister(int fd, const msg_body_mutex_unregister_t *body)
+{
+	if (fd >= 0 && fd < MAX_CLIENTS && g_fd2pid[fd] != 0 &&
+	    g_fd2pid[fd] != body->pid)
+		return;
+
+	registry_mutex_remove(fd, body->futex_addr);
+}
+
+static void handle_lock_wait(int fd, const msg_body_lock_state_t *body)
+{
+	if (fd >= 0 && fd < MAX_CLIENTS && g_fd2pid[fd] != 0 &&
+	    g_fd2pid[fd] != body->pid)
+		return;
+
+	registry_lock();
+	registry_lock_wait(body->pid, body->tid, body->futex_addr);
+	registry_unlock();
+}
+
+static void handle_lock_acquired(int fd, const msg_body_lock_state_t *body)
+{
+	if (fd >= 0 && fd < MAX_CLIENTS && g_fd2pid[fd] != 0 &&
+	    g_fd2pid[fd] != body->pid)
+		return;
+
+	registry_lock();
+	registry_lock_acquired(body->pid, body->tid);
+	registry_unlock();
+}
+
 static void handle_shutdown(int fd, const msg_body_shutdown_t *body)
 {
 	registry_lock();
 	registry_cleanup_pid(body->pid);
 	registry_unlock();
+	registry_mutex_cleanup_fd(fd);
 	close(fd);
-	g_fd2pid[fd] = 0;
+	if (fd >= 0 && fd < MAX_CLIENTS)
+		g_fd2pid[fd] = 0;
 }
 
 static void handle_client_disconnect(int fd)
@@ -119,6 +167,7 @@ static void handle_client_disconnect(int fd)
 	registry_lock();
 	registry_cleanup_fd(fd);
 	registry_unlock();
+	registry_mutex_cleanup_fd(fd);
 	close(fd);
 	if (fd >= 0 && fd < MAX_CLIENTS)
 		g_fd2pid[fd] = 0;
@@ -224,6 +273,8 @@ void server_run(void)
 						close(client);
 						continue;
 					}
+					if (client < MAX_CLIENTS)
+						g_fd2pid[client] = cred.pid;
 				}
 
 				struct epoll_event ev;
@@ -261,6 +312,22 @@ void server_run(void)
 				case MSG_SHUTDOWN:
 					if (body && hdr.body_len >= sizeof(msg_body_shutdown_t))
 						handle_shutdown(fd, (const msg_body_shutdown_t *)body);
+					break;
+				case MSG_MUTEX_REGISTER:
+					if (body && hdr.body_len >= sizeof(msg_body_mutex_register_t))
+						handle_mutex_register(fd, (const msg_body_mutex_register_t *)body);
+					break;
+				case MSG_MUTEX_UNREGISTER:
+					if (body && hdr.body_len >= sizeof(msg_body_mutex_unregister_t))
+						handle_mutex_unregister(fd, (const msg_body_mutex_unregister_t *)body);
+					break;
+				case MSG_LOCK_WAIT:
+					if (body && hdr.body_len >= sizeof(msg_body_lock_state_t))
+						handle_lock_wait(fd, (const msg_body_lock_state_t *)body);
+					break;
+				case MSG_LOCK_ACQUIRED:
+					if (body && hdr.body_len >= sizeof(msg_body_lock_state_t))
+						handle_lock_acquired(fd, (const msg_body_lock_state_t *)body);
 					break;
 				default:
 					break;

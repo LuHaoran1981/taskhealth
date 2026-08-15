@@ -3,10 +3,10 @@ taskhealth (0.1.0-1) unstable; urgency=medium
   * Initial release with client-daemon architecture.
   * Daemon (taskhealthd): Unix domain socket server, epoll event loop,
     cross-process thread registry, watchdog detection engine, /proc probes,
-    alert output (stderr / syslog / external script).
+    alert output (stderr / syslog / log file / external script).
   * Client library (libtaskhealth): IPC protocol over SOCK_SEQPACKET,
     thread register / heartbeat / unregister / shutdown.
   * Detection: unexpected thread exit, futex deadlock, lock-wait timeout.
-  * Zero external dependencies, GPL-2.0 licensed.
+  * Zero external dependencies, dual-licensed (MIT library / GPL-2.0-or-later daemon).
 
  -- Lu Haoran <luhaoran@symthosm.com>  Tue, 12 Aug 2026 00:00:00 +0800

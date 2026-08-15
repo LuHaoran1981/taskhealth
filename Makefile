@@ -11,7 +11,7 @@ CC            = gcc
 AR            = ar
 CFLAGS        = -Wall -Wextra -std=c11 -pthread -O2 -g -fPIC \
                 -DTASKHEALTH_VERSION=\"$(VERSION)\" \
-                -I $(SRCDIR) -I $(DAEMONDIR)
+                -I $(SRCDIR) -I $(DAEMONDIR) -I $(INCDIR)
 LDFLAGS       = -pthread
 
 prefix        = /usr/local
@@ -22,6 +22,7 @@ includedir    = $(prefix)/include
 pkgconfigdir  = $(libdir)/pkgconfig
 
 SRCDIR        = src
+INCDIR        = include
 TESTDIR       = test
 DEMODIR       = demo
 DAEMONDIR     = daemon
@@ -32,7 +33,9 @@ LIBSONAME     = $(LIBSO).$(SOVER_MAJOR)
 LIBSOREAL     = $(LIBSO).$(VERSION)
 
 LIB_OBJS      = $(SRCDIR)/taskhealth.o $(SRCDIR)/taskhealth_mutex.o
-HEADERS       = $(SRCDIR)/taskhealth.h $(SRCDIR)/taskhealth_mutex.h $(SRCDIR)/protocol.h
+PUBLIC_HEADERS = $(SRCDIR)/taskhealth.h $(SRCDIR)/taskhealth_mutex.h
+PROTOCOL_HEADER = $(INCDIR)/taskhealth/protocol.h
+HEADERS       = $(PUBLIC_HEADERS) $(PROTOCOL_HEADER)
 DAEMON_SRCS   = $(DAEMONDIR)/main.c $(DAEMONDIR)/server.c $(DAEMONDIR)/registry.c \
                 $(DAEMONDIR)/watchdog.c $(DAEMONDIR)/probe.c $(DAEMONDIR)/alert.c
 DAEMON_OBJS   = $(DAEMON_SRCS:.c=.o)
@@ -52,10 +55,10 @@ $(LIBSONAME): $(LIB_OBJS)
 taskhealthd: $(DAEMON_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-$(SRCDIR)/taskhealth.o: $(SRCDIR)/taskhealth.c $(SRCDIR)/taskhealth.h $(SRCDIR)/protocol.h
+$(SRCDIR)/taskhealth.o: $(SRCDIR)/taskhealth.c $(SRCDIR)/taskhealth.h $(PROTOCOL_HEADER)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(SRCDIR)/taskhealth_mutex.o: $(SRCDIR)/taskhealth_mutex.c $(SRCDIR)/taskhealth_mutex.h
+$(SRCDIR)/taskhealth_mutex.o: $(SRCDIR)/taskhealth_mutex.c $(SRCDIR)/taskhealth_mutex.h $(SRCDIR)/taskhealth_internal.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(DAEMONDIR)/%.o: $(DAEMONDIR)/%.c
@@ -65,7 +68,8 @@ $(DAEMONDIR)/%.o: $(DAEMONDIR)/%.c
 demo: $(DEMODIR)/demo.c $(LIBST) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(DEMODIR)/$@ $< -L. -ltaskhealth $(LDFLAGS)
 
-# unit test
+# unit test (client library API only; needs a running taskhealthd
+# on the default socket for the register round-trip tests)
 test: $(TESTDIR)/test.c $(LIBST) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(TESTDIR)/$@ $< -L. -ltaskhealth $(LDFLAGS)
 
@@ -98,13 +102,15 @@ clean:
 		$(DAEMONDIR)/*.gcno $(DAEMONDIR)/*.gcda
 
 install: $(LIBST) $(LIBSONAME) taskhealthd demo
-	install -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir) $(DESTDIR)$(bindir) \
+	install -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir) \
+		$(DESTDIR)$(includedir)/taskhealth $(DESTDIR)$(bindir) \
 		$(DESTDIR)$(pkgconfigdir) $(DESTDIR)$(sbindir)
 	install -m 644 $(LIBST) $(DESTDIR)$(libdir)
 	install -m 755 $(LIBSOREAL) $(DESTDIR)$(libdir)
 	ln -sf $(LIBSOREAL) $(DESTDIR)$(libdir)/$(LIBSONAME)
 	ln -sf $(LIBSONAME) $(DESTDIR)$(libdir)/$(LIBSO)
-	install -m 644 $(HEADERS) $(DESTDIR)$(includedir)
+	install -m 644 $(PUBLIC_HEADERS) $(DESTDIR)$(includedir)
+	install -m 644 $(PROTOCOL_HEADER) $(DESTDIR)$(includedir)/taskhealth
 	install -m 644 taskhealth.pc $(DESTDIR)$(pkgconfigdir)
 	install -m 755 taskhealthd $(DESTDIR)$(sbindir)
 	install -m 755 $(DEMODIR)/demo $(DESTDIR)$(bindir)/taskhealth-demo
@@ -120,8 +126,8 @@ taskhealth.pc: taskhealth.pc.in
 # source tarball (for rpm build)
 dist: clean
 	mkdir -p taskhealth-$(VERSION)
-	cp -r $(SRCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib Makefile \
-		taskhealth.pc.in LICENSE README.md \
+	cp -r $(SRCDIR) $(INCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib Makefile \
+		taskhealth.pc.in LICENSE LICENSE.MIT README.md \
 		taskhealth-$(VERSION)/
 	tar czf $(TARNAME) taskhealth-$(VERSION)
 	rm -rf taskhealth-$(VERSION)

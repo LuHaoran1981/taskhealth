@@ -26,7 +26,7 @@ TaskHealth 把"监控故障并响应"这一思路带到 Linux，但粒度细化�
 | Granularity 粒度 | Process / service | **Thread** |
 | Scope 范围 | Node / cluster | Single host, cross-process |
 | Detects 检测 | Process crash / hang | Thread exit, futex deadlock, lock timeout |
-| Action 响应 | Restart / failover | Alert (script / syslog / stderr) |
+| Action 响应 | Restart / failover | Alert (stderr / syslog / log file / script) |
 | Recovery 恢复 | Automatic restart | Alert only (restart the process) |
 
 On Linux, `systemd` already supervises *processes* (start / stop / restart), but
@@ -61,9 +61,8 @@ messages over IPC.
 ## Build 构建
 
 ```sh
-make          # libtaskhealth.a + taskhealthd
-make all-full # 库 + 守护进程 + demo + 单元测试
-make check    # 编译并运行单元测试
+make          # libtaskhealth.a/.so + taskhealthd
+make demo     # demo 业务示例程序
 make install  # 安装到 /usr/local
 ```
 
@@ -74,8 +73,10 @@ Terminal 1 — start the daemon:
 终端 1 — 启动守护进程：
 
 ```sh
-./taskhealthd -s /tmp/taskhealth.sock -i 500
+./taskhealthd -s /tmp/taskhealth.sock -i 500 -l /tmp/taskhealth.log
 ```
+
+(`-l` 可选：告警同时写入日志文件；不加则只写 syslog 和 stderr。)
 
 Terminal 2 — run the demo business program:
 
@@ -118,9 +119,17 @@ ARINC 653（航空电子 RTOS 标准）定义了健康监控（HM），在模块
 
 ## License 许可
 
-GPL-2.0-or-later. See [LICENSE](LICENSE).
+The client library (`src/`, i.e. `libtaskhealth.so` / `.a`) is licensed under
+the **MIT license** — link it into your own software freely, no copyleft.
+See [LICENSE.MIT](LICENSE.MIT).
 
-GPL-2.0-or-later，详见 [LICENSE](LICENSE)。
+The daemon (`daemon/`, `taskhealthd`) is **GPL-2.0-or-later**.
+See [LICENSE](LICENSE).
+
+客户端库（`src/`，即 `libtaskhealth.so` / `.a`）采用 **MIT 协议**，可自由链接进
+你自己的软件，无 copyleft 约束，详见 [LICENSE.MIT](LICENSE.MIT)。
+
+守护进程（`daemon/`、`taskhealthd`）为 **GPL-2.0-or-later**，详见 [LICENSE](LICENSE)。
 
 Copyright (C) 2026 Shanghai Symthosm Intelligent Technology Co., Ltd.
 Author: Lu Haoran <luhaoran@symthosm.com> 芦浩然

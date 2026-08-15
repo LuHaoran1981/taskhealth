@@ -39,7 +39,7 @@ static void handle_exit(Entry *e)
 		e->alerted_exit = true;
 		e->active = false;
 		e->client_fd = -1;
-		alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL);
+		alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
 	}
 }
 
@@ -67,15 +67,23 @@ static void probe_and_detect(Entry *e, int64_t now)
 		return;
 	}
 
-	/* thread is stuck on a futex — read address + resolve module */
-	uintptr_t futex_addr  = probe_futex_addr(e->pid, e->tid);
+	/* thread is stuck on a futex — read address + resolve module + lock name */
+	uintptr_t futex_addr  = e->wait_futex_addr;   /* cooperative (ptrace-free) */
+	if (!futex_addr)
+		futex_addr = probe_futex_addr(e->pid, e->tid);  /* /proc fallback */
 	char     *futex_module = futex_addr ?
 		probe_resolve_futex(e->pid, futex_addr) : NULL;
+
+	char lock_name[TASKHEALTH_NAME_LEN] = "";
+	int  have_lock = futex_addr ?
+		registry_mutex_resolve(e->client_fd, (uint64_t)futex_addr,
+				       lock_name, sizeof(lock_name)) : 0;
 
 	/* ②a deadlock: heartbeat timeout + futex blocking */
 	if (!e->alerted_deadlock) {
 		e->alerted_deadlock = true;
-		alert_emit(ALERT_DEADLOCK, e, wchan, futex_addr, 0, futex_module);
+		alert_emit(ALERT_DEADLOCK, e, wchan, futex_addr, 0, futex_module,
+			   have_lock ? lock_name : NULL);
 	}
 
 	/* ②b lock-wait timeout (only when lock_hold_ms > 0) */
@@ -88,7 +96,8 @@ static void probe_and_detect(Entry *e, int64_t now)
 			if (!e->alerted_lock_wait) {
 				e->alerted_lock_wait = true;
 				alert_emit(ALERT_LOCK_WAIT, e, wchan, futex_addr,
-					   waited / 1000000LL, futex_module);
+					   waited / 1000000LL, futex_module,
+					   have_lock ? lock_name : NULL);
 			}
 		}
 	}
@@ -100,22 +109,36 @@ static void *watchdog_thread(void *arg)
 {
 	(void)arg;
 
+	/* Snapshot buffer for active entries, sized once at startup. */
+	int capacity = 0;
+	registry_lock();
+	registry_entries(&capacity);
+	registry_unlock();
+
+	Entry *snapshot = calloc((size_t)capacity, sizeof(Entry));
+	if (!snapshot)
+		return NULL;
+
 	while (atomic_load(&g_running)) {
 		int64_t loop_start = now_ns();
-		int i, capacity;
+		int i, n;
 
+		/* ① snapshot active entries under lock */
 		registry_lock();
 		Entry *entries = registry_entries(&capacity);
+		for (i = 0, n = 0; i < capacity; i++)
+			if (entries[i].active)
+				snapshot[n++] = entries[i];
+		registry_unlock();
 
-		for (i = 0; i < capacity; i++) {
-			Entry *e = &entries[i];
+		/* ② probe / detect / alert without holding the registry lock,
+		 * so slow /proc reads and alert emission do not block clients. */
+		for (i = 0; i < n; i++) {
+			Entry *e = &snapshot[i];
 			int alive;
 			int64_t now, elapsed;
 
-			if (!e->active)
-				continue;
-
-			/* ① exit detection (always active) */
+			/* exit detection (always active) */
 			alive = probe_thread_alive(e->pid, e->tid);
 			if (alive == 0) {
 				handle_exit(e);
@@ -124,12 +147,49 @@ static void *watchdog_thread(void *arg)
 			if (alive < 0)
 				continue;
 
-			/* ② heartbeat timeout → probe_and_detect */
+			/* heartbeat timeout → probe_and_detect */
 			if (e->gap_ms > 0) {
 				now     = now_ns();
 				elapsed = now - e->last_heartbeat_ns;
-				if (elapsed > e->gap_ms * 1000000LL)
+				if (elapsed > e->gap_ms * 1000000LL) {
 					probe_and_detect(e, now);
+				} else if (e->alerted_deadlock ||
+					   e->alerted_lock_wait ||
+					   e->lock_wait_start_ns != 0) {
+					/* heartbeat recovered → reset flags so a
+					 * new episode alerts again */
+					e->alerted_deadlock   = false;
+					e->alerted_lock_wait  = false;
+					e->lock_wait_start_ns = 0;
+				}
+			}
+		}
+
+		/* ③ write state changes back under lock, guarded by pid/tid match
+		 * (the entry may have been removed or reused in the meantime) */
+		registry_lock();
+		entries = registry_entries(&capacity);
+		for (i = 0; i < n; i++) {
+			Entry *snap = &snapshot[i];
+			int j;
+
+			for (j = 0; j < capacity; j++) {
+				Entry *e = &entries[j];
+				if (!e->active ||
+				    e->pid != snap->pid ||
+				    e->tid != snap->tid)
+					continue;
+
+				e->alerted_deadlock   = snap->alerted_deadlock;
+				e->alerted_lock_wait  = snap->alerted_lock_wait;
+				e->lock_wait_start_ns = snap->lock_wait_start_ns;
+
+				if (snap->alerted_exit) {
+					e->alerted_exit = true;
+					e->active       = false;
+					e->client_fd    = -1;
+				}
+				break;
 			}
 		}
 		registry_unlock();
@@ -144,6 +204,8 @@ static void *watchdog_thread(void *arg)
 			nanosleep(&ts, NULL);
 		}
 	}
+
+	free(snapshot);
 	return NULL;
 }
 

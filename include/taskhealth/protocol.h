@@ -4,10 +4,23 @@
  * Author: Lu Haoran <luhaoran@symthosm.com>
  *         芦浩然
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 /**
@@ -35,11 +48,15 @@ extern "C" {
 /* ── message types ──────────────────────────────────────────────────── */
 
 enum taskhealth_msg_type {
-	MSG_REGISTER   = 1,   /* client → daemon: register thread */
-	MSG_UNREGISTER = 2,   /* client → daemon: unregister thread */
-	MSG_HEARTBEAT  = 3,   /* client → daemon: heartbeat (one-way) */
-	MSG_SHUTDOWN   = 4,   /* client → daemon: process exiting (one-way) */
-	MSG_RESPONSE   = 5,   /* daemon → client: response to REGISTER */
+	MSG_REGISTER         = 1,   /* client → daemon: register thread */
+	MSG_UNREGISTER       = 2,   /* client → daemon: unregister thread */
+	MSG_HEARTBEAT        = 3,   /* client → daemon: heartbeat (one-way) */
+	MSG_SHUTDOWN         = 4,   /* client → daemon: process exiting (one-way) */
+	MSG_RESPONSE         = 5,   /* daemon → client: response to REGISTER */
+	MSG_MUTEX_REGISTER   = 6,   /* client → daemon: mutex name report (one-way) */
+	MSG_MUTEX_UNREGISTER = 7,   /* client → daemon: mutex name removal (one-way) */
+	MSG_LOCK_WAIT        = 8,   /* client → daemon: thread about to block on futex (one-way) */
+	MSG_LOCK_ACQUIRED    = 9,   /* client → daemon: thread acquired the lock (one-way) */
 };
 
 /* ── header ─────────────────────────────────────────────────────────── */
@@ -101,6 +118,35 @@ typedef struct {
 } __attribute__((packed)) msg_body_response_t;
 
 _Static_assert(sizeof(msg_body_response_t) == 4, "response body size");
+
+/* ── body: MSG_MUTEX_REGISTER ───────────────────────────────────────── */
+
+typedef struct {
+	int32_t  pid;                      /*  4B  getpid() */
+	uint64_t futex_addr;               /*  8B  business-process virtual addr (&mutex) */
+	char     name[TASKHEALTH_NAME_LEN]; /* 32B  mutex name, NUL-terminated */
+} __attribute__((packed)) msg_body_mutex_register_t;
+
+_Static_assert(sizeof(msg_body_mutex_register_t) == 44, "mutex register body size");
+
+/* ── body: MSG_MUTEX_UNREGISTER ─────────────────────────────────────── */
+
+typedef struct {
+	int32_t  pid;                      /*  4B */
+	uint64_t futex_addr;               /*  8B */
+} __attribute__((packed)) msg_body_mutex_unregister_t;
+
+_Static_assert(sizeof(msg_body_mutex_unregister_t) == 12, "mutex unregister body size");
+
+/* ── body: MSG_LOCK_WAIT / MSG_LOCK_ACQUIRED ─────────────────────────── */
+
+typedef struct {
+	int32_t  pid;                      /*  4B  getpid() */
+	int32_t  tid;                      /*  4B  gettid() */
+	uint64_t futex_addr;               /*  8B  futex the thread blocks on */
+} __attribute__((packed)) msg_body_lock_state_t;
+
+_Static_assert(sizeof(msg_body_lock_state_t) == 16, "lock state body size");
 
 /* ── status codes ───────────────────────────────────────────────────── */
 

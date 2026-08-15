@@ -12,7 +12,7 @@
 
 /**
  * @file alert.h
- * @brief Alert module — syslog, stderr, external script.
+ * @brief Alert module — syslog, log file, stderr, external script.
  */
 
 #ifndef TASKHEALTH_ALERT_H
@@ -28,9 +28,26 @@ enum alert_type {
 	ALERT_LOCK_WAIT,
 };
 
-int  alert_init(const char *script_path);
+/**
+ * @brief Alert severity.
+ *
+ * CRITICAL alerts are printed to stderr AND recorded to the log file;
+ * NORMAL alerts are only recorded to the log file (no stderr noise).
+ */
+enum alert_severity {
+	SEV_NORMAL,
+	SEV_CRITICAL,
+};
+
+/**
+ * @brief Initialize the alert module.
+ * @param script_path  Optional external alert script (NULL/"" = none).
+ * @param log_file     Optional log file path (NULL/"" = syslog only).
+ */
+int  alert_init(const char *script_path, const char *log_file);
 void alert_emit(enum alert_type type, const Entry *e,
 		const char *wchan, uintptr_t futex_addr,
-		int64_t wait_ms, const char *futex_module);
+		int64_t wait_ms, const char *futex_module,
+		const char *lock_name);
 
 #endif

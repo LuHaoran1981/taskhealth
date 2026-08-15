@@ -13,44 +13,14 @@
 #define _GNU_SOURCE
 #include "../src/taskhealth.h"
 #include "../src/taskhealth_mutex.h"
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
 
-#define SOCK_PATH "/tmp/taskhealth-demo.sock"
-
-static pid_t g_daemon_pid;
-
-static int start_daemon(void)
-{
-	pid_t pid = fork();
-	if (pid < 0) { perror("fork"); return -1; }
-	if (pid == 0) {
-		execl("./taskhealthd", "taskhealthd",
-		      "-s", SOCK_PATH,
-		      "-i", "500",
-		      "-m", "64",
-		      NULL);
-		perror("execl taskhealthd");
-		_exit(1);
-	}
-	g_daemon_pid = pid;
-	sleep(1); /* wait for daemon to start */
-	return 0;
-}
-
-static void stop_daemon(void)
-{
-	if (g_daemon_pid > 0) {
-		kill(g_daemon_pid, SIGTERM);
-		waitpid(g_daemon_pid, NULL, 0);
-		g_daemon_pid = 0;
-	}
-	unlink(SOCK_PATH);
-}
+/* Connect to the taskhealthd running on its default socket.
+ * Start the daemon separately first:  ./taskhealthd  (or via systemd). */
+#define SOCK_PATH "/tmp/taskhealth.sock"
 
 static int client_init(void)
 {
@@ -252,15 +222,11 @@ static void test_auto_name(void)
 
 int main(void)
 {
-	printf("TaskHealth Demo (daemon architecture)\n");
-	printf("======================================\n");
-
-	if (start_daemon() < 0)
-		return 1;
+	printf("TaskHealth Demo (connect to running taskhealthd)\n");
+	printf("================================================\n");
 
 	if (client_init() != TASKHEALTH_OK) {
-		fprintf(stderr, "client init failed\n");
-		stop_daemon();
+		fprintf(stderr, "client init failed — is taskhealthd running?\n");
 		return 1;
 	}
 
@@ -271,10 +237,9 @@ int main(void)
 	test_lock_wait_timeout();
 
 	printf("\n=== Summary ===\n");
-	printf("  Check the daemon stderr output above for alerts.\n");
-	printf("  Expected: 1 UNEXPECTED_EXIT + 2 DEADLOCK + 1 LOCK_WAIT\n");
+	printf("  Watch the taskhealthd output for alerts.\n");
+	printf("  Expected: 1 UNEXPECTED_EXIT + 3 DEADLOCK + 1 LOCK_WAIT\n");
 
 	taskhealth_shutdown();
-	stop_daemon();
 	return 0;
 }
