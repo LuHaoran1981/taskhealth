@@ -1,7 +1,8 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: taskhealth
 Upstream-Contact: Lu Haoran <luhaoran@symthosm.com>
-Source: https://github.com/symthosm/taskhealth
+# TODO: migrate to github.com/symthosm/taskhealth once the org repo exists
+Source: https://github.com/LuHaoran1981/taskhealth
 
 Files: src/* include/*
 Copyright: 2026 Shanghai Symthosm Intelligent Technology Co., Ltd.

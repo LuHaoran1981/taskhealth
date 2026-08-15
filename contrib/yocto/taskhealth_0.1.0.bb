@@ -4,13 +4,14 @@ user-space, inspired by QNX HAM. The daemon (taskhealthd) accepts registrations 
 from multiple processes via Unix domain socket and performs cross-process \
 heartbeat monitoring, /proc probes, and alerting. Detects unexpected thread \
 exits, futex deadlocks, and lock-wait timeouts."
-HOMEPAGE = "https://github.com/symthosm/taskhealth"
+# TODO: migrate to github.com/symthosm/taskhealth once the org repo exists
+HOMEPAGE = "https://github.com/LuHaoran1981/taskhealth"
 LICENSE = "MIT & GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://LICENSE.MIT;md5=e60ba40de4a2b0d6e400a41ab5031821 \
                     file://LICENSE;md5=4641e94ec96f98fabc56ff9cc48be14b"
 SECTION = "libs"
 
-SRC_URI = "https://github.com/symthosm/taskhealth/releases/download/v${PV}/taskhealth-${PV}.tar.gz"
+SRC_URI = "https://github.com/LuHaoran1981/taskhealth/releases/download/v${PV}/taskhealth-${PV}.tar.gz"
 SRC_URI[sha256sum] = "<fill-in-on-release>"
 
 S = "${WORKDIR}/taskhealth-${PV}"

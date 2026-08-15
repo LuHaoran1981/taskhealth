@@ -5,9 +5,10 @@ Maintainer: Lu Haoran <luhaoran@symthosm.com>
 Build-Depends: debhelper-compat (= 13), gcc, make
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Homepage: https://github.com/symthosm/taskhealth
-Vcs-Git: https://github.com/symthosm/taskhealth.git
-Vcs-Browser: https://github.com/symthosm/taskhealth
+# TODO: migrate to github.com/symthosm/taskhealth once the org repo exists
+Homepage: https://github.com/LuHaoran1981/taskhealth
+Vcs-Git: https://github.com/LuHaoran1981/taskhealth.git
+Vcs-Browser: https://github.com/LuHaoran1981/taskhealth
 
 Package: taskhealthd
 Architecture: linux-any

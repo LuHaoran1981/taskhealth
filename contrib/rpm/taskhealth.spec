@@ -4,7 +4,8 @@ Release:        1%{?dist}
 Summary:        Linux thread health monitoring (client-daemon)
 
 License:        MIT AND GPL-2.0-or-later
-URL:            https://github.com/symthosm/taskhealth
+# TODO: migrate to github.com/symthosm/taskhealth once the org repo exists
+URL:            https://github.com/LuHaoran1981/taskhealth
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  gcc, make
