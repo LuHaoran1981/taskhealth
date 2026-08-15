@@ -9,4 +9,4 @@ taskhealth (0.1.0-1) unstable; urgency=medium
   * Detection: unexpected thread exit, futex deadlock, lock-wait timeout.
   * Zero external dependencies, dual-licensed (MIT library / GPL-2.0-or-later daemon).
 
- -- Lu Haoran <luhaoran@symthosm.com>  Tue, 12 Aug 2026 00:00:00 +0800
+ -- Lu Haoran <37183985@qq.com>  Tue, 12 Aug 2026 00:00:00 +0800

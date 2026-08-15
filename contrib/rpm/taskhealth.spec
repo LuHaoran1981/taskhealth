@@ -81,5 +81,5 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_bindir}/taskhealth-demo
 
 %changelog
-* Tue Aug 12 2026 Lu Haoran <luhaoran@symthosm.com> - 0.1.0-1
+* Tue Aug 12 2026 Lu Haoran <37183985@qq.com> - 0.1.0-1
 - Initial release with client-daemon architecture

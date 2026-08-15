@@ -1,7 +1,7 @@
 Source: taskhealth
 Section: libs
 Priority: optional
-Maintainer: Lu Haoran <luhaoran@symthosm.com>
+Maintainer: Lu Haoran <37183985@qq.com>
 Build-Depends: debhelper-compat (= 13), gcc, make
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
