@@ -1,3 +1,13 @@
+taskhealth (0.2.0-1) unstable; urgency=medium
+
+  * Lock-name resolution for futex deadlock / lock-wait alerts.
+  * Watchdog snapshot/write-back pattern (probe without holding registry lock).
+  * Distinguish table-full vs already-registered errors.
+  * Client register response timeout (2s).
+  * SPDX license identifiers and Debian packaging path fixes.
+
+ -- Lu Haoran <37183985@qq.com>  Sat, 16 Aug 2026 00:00:00 +0800
+
 taskhealth (0.1.0-1) unstable; urgency=medium
 
   * Initial release with client-daemon architecture.

@@ -14,7 +14,7 @@ override_dh_install:
 		usr/sbin/taskhealthd
 	dh_install -plibtaskhealth0 \
 		usr/lib/libtaskhealth.so.0 \
-		usr/lib/libtaskhealth.so.0.1.0
+		usr/lib/libtaskhealth.so.0.2.0
 	dh_install -plibtaskhealth-dev \
 		usr/lib/libtaskhealth.a \
 		usr/lib/libtaskhealth.so \

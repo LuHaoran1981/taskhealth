@@ -1,5 +1,5 @@
 Name:           taskhealth
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Linux thread health monitoring (client-daemon)
 
@@ -66,7 +66,7 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %files -n libtaskhealth0
 %license LICENSE.MIT
 %{_libdir}/libtaskhealth.so.0
-%{_libdir}/libtaskhealth.so.0.1.0
+%{_libdir}/libtaskhealth.so.0.2.0
 
 %files devel
 %license LICENSE.MIT
@@ -81,5 +81,12 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_bindir}/taskhealth-demo
 
 %changelog
+* Sat Aug 16 2026 Lu Haoran <37183985@qq.com> - 0.2.0-1
+- Lock-name resolution for futex deadlock / lock-wait alerts
+- Watchdog snapshot/write-back pattern (probe without holding registry lock)
+- Distinguish table-full vs already-registered errors
+- Client register response timeout (2s)
+- SPDX license identifiers and Debian packaging path fixes
+
 * Tue Aug 12 2026 Lu Haoran <37183985@qq.com> - 0.1.0-1
 - Initial release with client-daemon architecture
