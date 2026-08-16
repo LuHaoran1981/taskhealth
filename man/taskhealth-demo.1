@@ -1,0 +1,45 @@
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH TASKHEALTH-DEMO 1 "August 2026" "TaskHealth 0.2.0" "User Commands"
+.SH NAME
+taskhealth-demo \- TaskHealth demonstration program
+.SH SYNOPSIS
+.B taskhealth-demo
+.SH DESCRIPTION
+.B taskhealth-demo
+connects to a running
+.BR taskhealthd (8)
+on its default socket and runs five scenarios that exercise the client
+library and trigger the daemon's detection engine.  It is a demonstration of
+how to use the TaskHealth client API, not an automated test.
+.PP
+Start
+.B taskhealthd
+first, then run
+.BR taskhealth-demo ,
+and watch the daemon's output for alerts.
+.SH SCENARIOS
+.TP
+.B Auto name
+Registers a thread with a NULL name and verifies an auto-generated name is
+accepted.
+.TP
+.B Unexpected exit
+A registered thread exits without unregistering; the daemon should emit an
+UNEXPECTED_EXIT alert.
+.TP
+.B Deadlock
+Two threads lock two mutexes in opposite order; the daemon should emit
+DEADLOCK alerts.
+.TP
+.B Normal heartbeat
+A thread heartbeats on schedule; no alert is expected.
+.TP
+.B Lock wait timeout
+A thread blocks on a held mutex longer than its lock-hold threshold; the
+daemon should emit a LOCK_WAIT alert.
+.PP
+A successful run produces 1 UNEXPECTED_EXIT, 3 DEADLOCK, and 1 LOCK_WAIT
+alert.
+.SH SEE ALSO
+.BR taskhealthd (8),
+.BR taskhealth (7)

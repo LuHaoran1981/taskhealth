@@ -1,0 +1,93 @@
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH TASKHEALTHD 8 "August 2026" "TaskHealth 0.2.0" "System Administration"
+.SH NAME
+taskhealthd \- Linux user-space thread health monitoring daemon
+.SH SYNOPSIS
+.B taskhealthd
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B taskhealthd
+is a standalone daemon that monitors the health of threads across multiple
+user-space processes.  Client applications register their threads and report
+heartbeats over a Unix domain socket; the daemon watches those threads for
+unexpected exit, futex deadlock, and lock-wait timeouts using
+.I /proc
+probes, and emits alerts when a fault is detected.
+.PP
+The monitoring unit is the thread (TID), not the process.  Registration is
+keyed by \fI(pid, tid)\fR, so heartbeat, exit, deadlock, and lock-wait
+detection all target individual threads.
+.PP
+.B taskhealthd
+runs in the foreground by default.  Use
+.B \-\-daemonize
+to detach, or run it under systemd (a
+.I taskhealthd.service
+unit is provided).
+.SH OPTIONS
+.TP
+.BR \-s ", " \-\-socket " " \fIPATH\fR
+Unix domain socket path to listen on (default: \fI/tmp/taskhealth.sock\fR).
+.TP
+.BR \-i ", " \-\-interval " " \fIMS\fR
+Watchdog scan interval in milliseconds (default: 1000, clamped to
+100\-60000).
+.TP
+.BR \-m ", " \-\-max\-entries " " \fIN\fR
+Maximum number of monitored threads (default: 4096, clamped to 1\-65536).
+.TP
+.BR \-d ", " \-\-daemonize
+Detach and run in the background.
+.TP
+.BR \-a ", " \-\-alert\-script " " \fIPATH\fR
+External script invoked with alert details (default: none).
+.TP
+.BR \-l ", " \-\-log\-file " " \fIPATH\fR
+Append alerts to \fIPATH\fR (default: syslog only).
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a usage summary and exit.
+.SH DETECTION
+.B taskhealthd
+detects three classes of fault:
+.TP
+.B Unexpected exit
+A registered thread terminates without calling the client's unregister
+function.
+.TP
+.B Deadlock
+A thread whose heartbeat has timed out is blocked on a futex (its kernel
+wchan shows \fIfutex\fR).
+.TP
+.B Lock-wait timeout
+A thread remains blocked on a futex longer than its configured lock-hold
+threshold.
+.PP
+When the client library reports the futex address before blocking and the
+mutex was registered with a name, alerts resolve the blocked address to a
+human-readable lock name.
+.SH ALERTS
+Alerts are emitted by severity.  Critical alerts (unexpected exit, deadlock)
+are printed to stderr and recorded to the log; lock-wait alerts are recorded
+to the log only.  Output targets are syslog, the optional
+.B \-\-log\-file ,
+and the optional
+.B \-\-alert\-script .
+.SH SIGNALS
+.B taskhealthd
+terminates gracefully on
+.BR SIGTERM ,
+.BR SIGINT ,
+or
+.BR SIGQUIT ,
+stopping the watchdog and closing the socket.
+.SH FILES
+.TP
+.I /tmp/taskhealth.sock
+Default Unix domain socket.
+.SH SEE ALSO
+.BR taskhealth (7),
+.BR taskhealth-demo (1)

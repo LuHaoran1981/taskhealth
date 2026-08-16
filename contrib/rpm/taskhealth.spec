@@ -9,6 +9,7 @@ URL:            https://github.com/LuHaoran1981/taskhealth
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  gcc, make
+BuildRequires:  systemd-rpm-macros
 
 %description
 TaskHealth is a client-daemon thread health monitor for Linux user-space,
@@ -20,6 +21,7 @@ Detects unexpected thread exits, futex deadlocks, and lock-wait timeouts.
 
 %package -n taskhealthd
 Summary:  TaskHealth monitoring daemon
+%{?systemd_requires}
 
 %description -n taskhealthd
 The taskhealthd daemon — Unix domain socket server that monitors registered
@@ -59,9 +61,21 @@ make all-full
 %install
 make install DESTDIR=%{buildroot} prefix=/usr
 
+%post -n taskhealthd
+%systemd_post taskhealthd.service
+
+%preun -n taskhealthd
+%systemd_preun taskhealthd.service
+
+%postun -n taskhealthd
+%systemd_postun_with_restart taskhealthd.service
+
 %files -n taskhealthd
 %license LICENSE
 %{_sbindir}/taskhealthd
+%{_unitdir}/taskhealthd.service
+%{_mandir}/man8/taskhealthd.8*
+%{_mandir}/man7/taskhealth.7*
 
 %files -n libtaskhealth0
 %license LICENSE.MIT
@@ -79,6 +93,7 @@ make install DESTDIR=%{buildroot} prefix=/usr
 
 %files demo
 %{_bindir}/taskhealth-demo
+%{_mandir}/man1/taskhealth-demo.1*
 
 %changelog
 * Sat Aug 16 2026 Lu Haoran <37183985@qq.com> - 0.2.0-1

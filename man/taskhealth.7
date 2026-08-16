@@ -1,0 +1,45 @@
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH TASKHEALTH 7 "August 2026" "TaskHealth 0.2.0" "Overview"
+.SH NAME
+taskhealth \- Linux user-space thread health monitoring
+.SH DESCRIPTION
+TaskHealth is a client-daemon system for monitoring the health of threads in
+Linux user-space processes, inspired by QNX HAM.  It detects three classes of
+fault:
+.TP
+.B Unexpected exit
+a registered thread terminates without cleanly unregistering.
+.TP
+.B Deadlock
+a thread stops heartbeating while blocked on a futex.
+.TP
+.B Lock-wait timeout
+a thread stays blocked on a futex longer than a configured threshold.
+.SH COMPONENTS
+.TP
+.B taskhealthd (8)
+The monitoring daemon: a Unix domain socket server that accepts registrations,
+tracks heartbeats, probes
+.IR /proc ,
+and emits alerts.
+.TP
+.B libtaskhealth
+The client library that links into business processes and sends
+register/heartbeat/unregister/shutdown messages over the socket.
+.TP
+.B libtaskhealth_mutex
+An optional companion mutex wrapper that registers mutex names so the daemon
+can resolve blocked futex addresses to human-readable lock names.
+.SH ARCHITECTURE
+The monitoring unit is the thread (TID).  Each client process connects to the
+daemon over a SOCK_SEQPACKET Unix domain socket and registers individual
+threads keyed by \fI(pid, tid)\fR.  The daemon watches those threads by
+reading
+.I /proc
+state (thread state, wchan, syscall, memory maps) and emits alerts by severity
+when a fault is detected.  The client library also cooperatively reports futex
+addresses before blocking, which lets the daemon resolve lock names without
+ptrace.
+.SH SEE ALSO
+.BR taskhealthd (8),
+.BR taskhealth-demo (1)

@@ -11,7 +11,10 @@ override_dh_auto_install:
 
 override_dh_install:
 	dh_install -ptaskhealthd \
-		usr/sbin/taskhealthd
+		usr/sbin/taskhealthd \
+		usr/lib/systemd/system/taskhealthd.service \
+		usr/share/man/man8/taskhealthd.8 \
+		usr/share/man/man7/taskhealth.7
 	dh_install -plibtaskhealth0 \
 		usr/lib/libtaskhealth.so.0 \
 		usr/lib/libtaskhealth.so.0.2.0
@@ -23,4 +26,5 @@ override_dh_install:
 		usr/include/taskhealth_mutex.h \
 		usr/include/taskhealth/protocol.h
 	dh_install -ptaskhealth-demo \
-		usr/bin/taskhealth-demo
+		usr/bin/taskhealth-demo \
+		usr/share/man/man1/taskhealth-demo.1

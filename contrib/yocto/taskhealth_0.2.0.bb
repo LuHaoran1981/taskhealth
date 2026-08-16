@@ -11,6 +11,9 @@ LIC_FILES_CHKSUM = "file://LICENSE.MIT;md5=e60ba40de4a2b0d6e400a41ab5031821 \
                     file://LICENSE;md5=4641e94ec96f98fabc56ff9cc48be14b"
 SECTION = "libs"
 
+inherit systemd
+SYSTEMD_SERVICE:${PN}-daemon = "taskhealthd.service"
+
 SRC_URI = "https://github.com/LuHaoran1981/taskhealth/releases/download/v${PV}/taskhealth-${PV}.tar.gz"
 SRC_URI[sha256sum] = "2340bd49ae1550f0d0a49ef80b2fdb4cb5931d7100766735fcf76e68754c5fd9"
 
@@ -26,7 +29,12 @@ do_install() {
 
 # daemon
 PACKAGES =+ "${PN}-daemon"
-FILES:${PN}-daemon = "${sbindir}/taskhealthd"
+FILES:${PN}-daemon = " \
+    ${sbindir}/taskhealthd \
+    ${nonarch_libdir}/systemd/system/taskhealthd.service \
+    ${mandir}/man8/taskhealthd.8 \
+    ${mandir}/man7/taskhealth.7 \
+"
 RDEPENDS:${PN}-daemon = "${PN}"
 
 # shared library (runtime)
@@ -47,5 +55,8 @@ FILES:${PN}-dev = " \
 
 # demo package
 PACKAGES =+ "${PN}-demo"
-FILES:${PN}-demo = "${bindir}/taskhealth-demo"
+FILES:${PN}-demo = " \
+    ${bindir}/taskhealth-demo \
+    ${mandir}/man1/taskhealth-demo.1 \
+"
 RDEPENDS:${PN}-demo = "${PN}"

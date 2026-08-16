@@ -14,12 +14,14 @@ CFLAGS        = -Wall -Wextra -std=c11 -pthread -O2 -g -fPIC \
                 -I $(SRCDIR) -I $(DAEMONDIR) -I $(INCDIR)
 LDFLAGS       = -pthread
 
-prefix        = /usr/local
-bindir        = $(prefix)/bin
-sbindir       = $(prefix)/sbin
-libdir        = $(prefix)/lib
-includedir    = $(prefix)/include
-pkgconfigdir  = $(libdir)/pkgconfig
+prefix         = /usr/local
+bindir         = $(prefix)/bin
+sbindir        = $(prefix)/sbin
+libdir         = $(prefix)/lib
+includedir     = $(prefix)/include
+pkgconfigdir   = $(libdir)/pkgconfig
+mandir         = $(prefix)/share/man
+systemdunitdir = $(prefix)/lib/systemd/system
 
 SRCDIR        = src
 INCDIR        = include
@@ -104,7 +106,9 @@ clean:
 install: $(LIBST) $(LIBSONAME) taskhealthd demo
 	install -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir) \
 		$(DESTDIR)$(includedir)/taskhealth $(DESTDIR)$(bindir) \
-		$(DESTDIR)$(pkgconfigdir) $(DESTDIR)$(sbindir)
+		$(DESTDIR)$(pkgconfigdir) $(DESTDIR)$(sbindir) \
+		$(DESTDIR)$(mandir)/man1 $(DESTDIR)$(mandir)/man8 \
+		$(DESTDIR)$(mandir)/man7 $(DESTDIR)$(systemdunitdir)
 	install -m 644 $(LIBST) $(DESTDIR)$(libdir)
 	install -m 755 $(LIBSOREAL) $(DESTDIR)$(libdir)
 	ln -sf $(LIBSOREAL) $(DESTDIR)$(libdir)/$(LIBSONAME)
@@ -114,6 +118,11 @@ install: $(LIBST) $(LIBSONAME) taskhealthd demo
 	install -m 644 taskhealth.pc $(DESTDIR)$(pkgconfigdir)
 	install -m 755 taskhealthd $(DESTDIR)$(sbindir)
 	install -m 755 $(DEMODIR)/demo $(DESTDIR)$(bindir)/taskhealth-demo
+	install -m 644 man/taskhealthd.8 $(DESTDIR)$(mandir)/man8/taskhealthd.8
+	install -m 644 man/taskhealth-demo.1 $(DESTDIR)$(mandir)/man1/taskhealth-demo.1
+	install -m 644 man/taskhealth.7 $(DESTDIR)$(mandir)/man7/taskhealth.7
+	install -m 644 contrib/systemd/taskhealthd.service \
+		$(DESTDIR)$(systemdunitdir)/taskhealthd.service
 
 # pkg-config file (generated at build time)
 taskhealth.pc: taskhealth.pc.in
@@ -126,7 +135,7 @@ taskhealth.pc: taskhealth.pc.in
 # source tarball (for rpm build)
 dist: clean
 	mkdir -p taskhealth-$(VERSION)
-	cp -r $(SRCDIR) $(INCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib Makefile \
+	cp -r $(SRCDIR) $(INCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib man Makefile \
 		taskhealth.pc.in LICENSE LICENSE.MIT README.md \
 		taskhealth-$(VERSION)/
 	tar czf $(TARNAME) taskhealth-$(VERSION)
