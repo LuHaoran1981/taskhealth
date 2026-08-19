@@ -96,12 +96,12 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_mandir}/man1/taskhealth-demo.1*
 
 %changelog
-* Sat Aug 16 2026 Lu Haoran <37183985@qq.com> - 0.2.0-1
+* Sat Aug 16 2026 Lu Haoran <luhaoran1981@icloud.com> - 0.2.0-1
 - Lock-name resolution for futex deadlock / lock-wait alerts
 - Watchdog snapshot/write-back pattern (probe without holding registry lock)
 - Distinguish table-full vs already-registered errors
 - Client register response timeout (2s)
 - SPDX license identifiers and Debian packaging path fixes
 
-* Tue Aug 12 2026 Lu Haoran <37183985@qq.com> - 0.1.0-1
+* Tue Aug 12 2026 Lu Haoran <luhaoran1981@icloud.com> - 0.1.0-1
 - Initial release with client-daemon architecture
