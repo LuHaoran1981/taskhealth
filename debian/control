@@ -2,7 +2,7 @@ Source: taskhealth
 Section: libs
 Priority: optional
 Maintainer: Lu Haoran <luhaoran1981@icloud.com>
-Build-Depends: debhelper-compat (= 13), gcc, make
+Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 # TODO: migrate to github.com/symthosm/taskhealth once the org repo exists
