@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2026 Shanghai Symthosm Intelligent Technology Co., Ltd.
  *                   上海先道智觉科技有限责任公司
- * Author: Lu Haoran <37183985@qq.com>
+ * Author: Lu Haoran <luhaoran1981@icloud.com>
  *         芦浩然
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

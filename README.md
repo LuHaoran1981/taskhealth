@@ -132,4 +132,4 @@ See [LICENSE](LICENSE).
 守护进程（`daemon/`、`taskhealthd`）为 **GPL-2.0-or-later**，详见 [LICENSE](LICENSE)。
 
 Copyright (C) 2026 Shanghai Symthosm Intelligent Technology Co., Ltd.
-Author: Lu Haoran <37183985@qq.com> 芦浩然
+Author: Lu Haoran <luhaoran1981@icloud.com> 芦浩然
