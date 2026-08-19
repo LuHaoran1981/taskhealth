@@ -93,7 +93,7 @@ cov: clean
 	gcov -r $(SRCDIR)/taskhealth.c $(SRCDIR)/taskhealth_mutex.c
 	@echo "  => taskhealth.c.gcov  taskhealth_mutex.c.gcov"
 
-all-full: $(LIBST) $(LIBSONAME) taskhealthd demo test taskhealth.pc
+all-full: $(LIBST) $(LIBSONAME) taskhealthd demo taskhealth.pc
 
 clean:
 	rm -f $(LIB_OBJS) $(DAEMON_OBJS) $(LIBST) $(LIBSOREAL) $(LIBSONAME) $(LIBSO) \
@@ -135,7 +135,7 @@ taskhealth.pc: taskhealth.pc.in
 # source tarball (for rpm build)
 dist: clean
 	mkdir -p taskhealth-$(VERSION)
-	cp -r $(SRCDIR) $(INCDIR) $(TESTDIR) $(DEMODIR) $(DAEMONDIR) debian contrib man Makefile \
+	cp -r $(SRCDIR) $(INCDIR) $(DEMODIR) $(DAEMONDIR) debian contrib man Makefile \
 		taskhealth.pc.in LICENSE LICENSE.MIT README.md \
 		taskhealth-$(VERSION)/
 	tar czf $(TARNAME) taskhealth-$(VERSION)
