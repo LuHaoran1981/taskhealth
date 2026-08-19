@@ -15,7 +15,7 @@ inherit systemd
 SYSTEMD_SERVICE:${PN}-daemon = "taskhealthd.service"
 
 SRC_URI = "https://github.com/LuHaoran1981/taskhealth/releases/download/v${PV}/taskhealth-${PV}.tar.gz"
-SRC_URI[sha256sum] = "2340bd49ae1550f0d0a49ef80b2fdb4cb5931d7100766735fcf76e68754c5fd9"
+SRC_URI[sha256sum] = "7428b21038a77086361dec585441507984fca73374f8aa263645e84565c060e8"
 
 S = "${WORKDIR}/taskhealth-${PV}"
 
