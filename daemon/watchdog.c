@@ -26,6 +26,7 @@
 static pthread_t g_watchdog_tid;
 static _Atomic bool g_running;
 static int64_t g_check_interval_ms;
+static int64_t g_offline_ttl_ns = TASKHEALTH_OFFLINE_TTL_NS;
 
 static inline int64_t now_ns(void)
 {
@@ -34,21 +35,40 @@ static inline int64_t now_ns(void)
 	return ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
-static void handle_exit(Entry *e)
+/* §3.4 + §8.4: server hands us an entry with client_fd == -1; this
+ * means the socket was closed without MSG_SHUTDOWN → process crash.
+ * We alert UNEXPECTED_EXIT, mark the entry as alerted, and add every
+ * such thread to the offline-thread table + the process to the
+ * offline-process table. */
+static void handle_process_crash(Entry *e, int64_t now)
 {
-	if (!e->alerted_exit) {
-		e->alerted_exit = true;
-		e->active = false;
-		e->client_fd = -1;
-		alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
-	}
+	if (e->alerted_exit) return;
+
+	alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
+
+	registry_offline_thread_add(e->proc_name, e->name,
+				    e->pid, e->tid, now);
+	registry_offline_process_add(e->proc_name, e->pid, now);
+
+	e->alerted_exit = true;
+	e->active       = false;
 }
 
-/*
- * Heartbeat timeout + deadlock + lock-wait detection.
- * Called only when gap_ms > 0 and heartbeat has timed out.
- * Reads /proc once, then makes both deadlock and lock-wait judgments.
- */
+/* §3.4: tgkill returned ESRCH.  Socket is still alive → only the
+ * thread is gone (process kept running).  Drop just that thread. */
+static void handle_exit(Entry *e, int64_t now)
+{
+	if (e->alerted_exit) return;
+
+	alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
+	registry_offline_thread_add(e->proc_name, e->name,
+				    e->pid, e->tid, now);
+
+	e->alerted_exit = true;
+	e->active       = false;
+}
+
+/* Same /proc read feeds both deadlock and lock-wait decisions. */
 static void probe_and_detect(Entry *e, int64_t now)
 {
 	char wchan[64];
@@ -58,7 +78,6 @@ static void probe_and_detect(Entry *e, int64_t now)
 	state     = probe_thread_state(e->pid, e->tid);
 	has_wchan = probe_wchan(e->pid, e->tid, wchan, sizeof(wchan)) > 0;
 
-	/* not blocked on futex → reset lock-wait tracking */
 	if (!has_wchan || !strstr(wchan, "futex")) {
 		e->lock_wait_start_ns = 0;
 		return;
@@ -68,16 +87,16 @@ static void probe_and_detect(Entry *e, int64_t now)
 		return;
 	}
 
-	/* thread is stuck on a futex — read address + resolve module + lock name */
-	uintptr_t futex_addr  = e->wait_futex_addr;   /* cooperative (ptrace-free) */
+	uintptr_t futex_addr   = e->wait_futex_addr;   /* cooperative */
 	if (!futex_addr)
 		futex_addr = probe_futex_addr(e->pid, e->tid);  /* /proc fallback */
-	char     *futex_module = futex_addr ?
+	char *futex_module = futex_addr ?
 		probe_resolve_futex(e->pid, futex_addr) : NULL;
 
 	char lock_name[TASKHEALTH_NAME_LEN] = "";
 	int  have_lock = futex_addr ?
-		registry_mutex_resolve(e->client_fd, (uint64_t)futex_addr,
+		registry_mutex_resolve(e->client_fd >= 0 ? e->client_fd : -1,
+				       (uint64_t)futex_addr,
 				       lock_name, sizeof(lock_name)) : 0;
 
 	/* ②a deadlock: heartbeat timeout + futex blocking */
@@ -87,11 +106,10 @@ static void probe_and_detect(Entry *e, int64_t now)
 			   have_lock ? lock_name : NULL);
 	}
 
-	/* ②b lock-wait timeout (only when lock_hold_ms > 0) */
+	/* ②b lock-wait timeout */
 	if (e->lock_hold_ms > 0) {
 		if (e->lock_wait_start_ns == 0)
 			e->lock_wait_start_ns = now;
-
 		int64_t waited = now - e->lock_wait_start_ns;
 		if (waited > e->lock_hold_ms * 1000000LL) {
 			if (!e->alerted_lock_wait) {
@@ -110,7 +128,6 @@ static void *watchdog_thread(void *arg)
 {
 	(void)arg;
 
-	/* Snapshot buffer for active entries, sized once at startup. */
 	int capacity = 0;
 	registry_lock();
 	registry_entries(&capacity);
@@ -124,7 +141,7 @@ static void *watchdog_thread(void *arg)
 		int64_t loop_start = now_ns();
 		int i, n;
 
-		/* ① snapshot active entries under lock */
+		/* ① lock in → snapshot of active entries */
 		registry_lock();
 		Entry *entries = registry_entries(&capacity);
 		for (i = 0, n = 0; i < capacity; i++)
@@ -132,17 +149,22 @@ static void *watchdog_thread(void *arg)
 				snapshot[n++] = entries[i];
 		registry_unlock();
 
-		/* ② probe / detect / alert without holding the registry lock,
-		 * so slow /proc reads and alert emission do not block clients. */
+		/* ② unlocked: probe + alert + offline writes (slow /proc /
+		 * fork do not block clients). */
 		for (i = 0; i < n; i++) {
 			Entry *e = &snapshot[i];
-			int alive;
-			int64_t now, elapsed;
+			int64_t now = now_ns();
 
-			/* exit detection (always active) */
-			alive = probe_thread_alive(e->pid, e->tid);
+			/* §8.4: client_fd == -1 = process crashed. */
+			if (e->client_fd == -1) {
+				handle_process_crash(e, now);
+				continue;
+			}
+
+			/* thread-alive check always runs */
+			int alive = probe_thread_alive(e->pid, e->tid);
 			if (alive == 0) {
-				handle_exit(e);
+				handle_exit(e, now);
 				continue;
 			}
 			if (alive < 0)
@@ -150,15 +172,14 @@ static void *watchdog_thread(void *arg)
 
 			/* heartbeat timeout → probe_and_detect */
 			if (e->gap_ms > 0) {
-				now     = now_ns();
-				elapsed = now - e->last_heartbeat_ns;
+				int64_t elapsed = now - e->last_heartbeat_ns;
 				if (elapsed > e->gap_ms * 1000000LL) {
 					probe_and_detect(e, now);
 				} else if (e->alerted_deadlock ||
 					   e->alerted_lock_wait ||
 					   e->lock_wait_start_ns != 0) {
-					/* heartbeat recovered → reset flags so a
-					 * new episode alerts again */
+					/* heartbeat recovered → reset so a
+					 * fresh episode alerts again */
 					e->alerted_deadlock   = false;
 					e->alerted_lock_wait  = false;
 					e->lock_wait_start_ns = 0;
@@ -166,8 +187,8 @@ static void *watchdog_thread(void *arg)
 			}
 		}
 
-		/* ③ write state changes back under lock, guarded by pid/tid match
-		 * (the entry may have been removed or reused in the meantime) */
+		/* ③ lock in → apply state changes, guarded by pid/tid match
+		 * (the entry may have been removed or reused concurrently). */
 		registry_lock();
 		entries = registry_entries(&capacity);
 		for (i = 0; i < n; i++) {
@@ -194,6 +215,9 @@ static void *watchdog_thread(void *arg)
 			}
 		}
 		registry_unlock();
+
+		/* §8.7: drop stale offline-table rows. */
+		registry_offline_expire(now_ns(), g_offline_ttl_ns);
 
 		int64_t scan_elapsed = now_ns() - loop_start;
 		int64_t sleep_ns = g_check_interval_ms * 1000000LL - scan_elapsed;

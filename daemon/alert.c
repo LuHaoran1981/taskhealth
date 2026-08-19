@@ -52,9 +52,18 @@ static enum alert_severity severity_of(enum alert_type type)
 	case ALERT_DEADLOCK:
 	case ALERT_LOCK_WAIT:
 		return SEV_CRITICAL;
+	case ALERT_RECOVERY:
 	default:
 		return SEV_NORMAL;
 	}
+}
+
+static void format_ts(char *ts, size_t len)
+{
+	time_t t = time(NULL);
+	struct tm tm;
+	localtime_r(&t, &tm);
+	strftime(ts, len, "%Y-%m-%d %H:%M:%S", &tm);
 }
 
 void alert_emit(enum alert_type type, const Entry *e,
@@ -93,6 +102,9 @@ void alert_emit(enum alert_type type, const Entry *e,
 			 futex_module ? futex_module : "?",
 			 lock_name ? lock_name : "(unknown)");
 		break;
+	case ALERT_RECOVERY:
+		/* recovery is routed through alert_emit_recovery() */
+		return;
 	default:
 		return;
 	}
@@ -106,10 +118,7 @@ void alert_emit(enum alert_type type, const Entry *e,
 	/* 2. log file (always, if configured) */
 	if (alert_log_fp) {
 		char ts[32];
-		time_t t = time(NULL);
-		struct tm tm;
-		localtime_r(&t, &tm);
-		strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm);
+		format_ts(ts, sizeof(ts));
 		fprintf(alert_log_fp, "%s [%s] [%s] %s\n", ts,
 			(sev == SEV_CRITICAL) ? "CRIT" : "NORM", type_str, buf);
 		fflush(alert_log_fp);
@@ -145,4 +154,40 @@ void alert_emit(enum alert_type type, const Entry *e,
 		}
 		/* parent does not waitpid — non-blocking */
 	}
+}
+
+/* §8.8 — recovery alerts are NORMAL: syslog + log file only. */
+void alert_emit_recovery(const char *kind,
+			 const registry_recovery_info_t *r)
+{
+	char buf[512];
+	const char *type_str = "RECOVERY";
+
+	if (!kind || !r) return;
+
+	if (strcmp(kind, "process") == 0) {
+		snprintf(buf, sizeof(buf),
+			 "process recovered: pid %d -> %d",
+			 (int)r->old_pid, (int)r->new_pid);
+	} else if (strcmp(kind, "thread") == 0) {
+		snprintf(buf, sizeof(buf),
+			 "thread recovered: pid %d tid %d -> pid %d tid %d",
+			 (int)r->old_pid, (int)r->old_tid,
+			 (int)r->new_pid, (int)r->new_tid);
+	} else {
+		return;
+	}
+
+	/* 1. syslog (NORMAL) */
+	syslog(LOG_WARNING, "[%s] %s", type_str, buf);
+
+	/* 2. log file (NORMAL) */
+	if (alert_log_fp) {
+		char ts[32];
+		format_ts(ts, sizeof(ts));
+		fprintf(alert_log_fp, "%s [NORM] [%s] %s\n", ts, type_str, buf);
+		fflush(alert_log_fp);
+	}
+
+	/* 3. stderr + script intentionally skipped (§8.8) */
 }

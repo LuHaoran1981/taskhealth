@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <stdatomic.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -36,7 +35,7 @@ static int g_listen_fd = -1;
 static int g_epoll_fd = -1;
 static _Atomic bool g_running;
 
-/* fd → pid mapping for disconnect cleanup */
+/* fd → pid mapping for SO_PEERCRED verification */
 static pid_t g_fd2pid[MAX_CLIENTS];
 
 static inline int64_t now_ns(void)
@@ -66,9 +65,16 @@ static int send_response(int fd, uint8_t status)
 	return (int)sendmsg(fd, &msg, MSG_NOSIGNAL);
 }
 
+/* §8.8: recovery alerts are NORMAL severity (syslog + log file only). */
+static void emit_recovery_alert(const char *kind,
+				const registry_recovery_info_t *r)
+{
+	alert_emit_recovery(kind, r);
+}
+
 static void handle_register(int fd, const msg_body_register_t *body)
 {
-	Entry *e = NULL;
+	registry_recovery_info_t rec;
 	registry_add_result_t rc;
 
 	if (body->gap_ms < 0 || body->lock_hold_ms < 0) {
@@ -76,15 +82,19 @@ static void handle_register(int fd, const msg_body_register_t *body)
 		return;
 	}
 
-	registry_lock();
-	rc = registry_add(body, fd, &e);
-	if (rc == REGISTRY_ADD_OK)
-		e->last_heartbeat_ns = now_ns();
-	registry_unlock();
+	/* proc_name is read from /proc/<pid>/comm inside registry_add. */
+	rc = registry_add(body, fd, NULL, NULL, &rec);
 
 	switch (rc) {
 	case REGISTRY_ADD_OK:
 		send_response(fd, MSG_STATUS_OK);
+		break;
+	case REGISTRY_ADD_RECOVERED:
+		send_response(fd, MSG_STATUS_OK);
+		if (rec.recovered_thread)
+			emit_recovery_alert("thread", &rec);
+		if (rec.recovered_process)
+			emit_recovery_alert("process", &rec);
 		break;
 	case REGISTRY_ADD_DUPLICATE:
 		send_response(fd, MSG_STATUS_ALREADY_REG);
@@ -100,21 +110,16 @@ static void handle_register(int fd, const msg_body_register_t *body)
 
 static void handle_heartbeat(const msg_body_heartbeat_t *body)
 {
-	registry_lock();
 	registry_heartbeat(body->pid, body->tid, now_ns());
-	registry_unlock();
 }
 
 static void handle_unregister(const msg_body_unregister_t *body)
 {
-	registry_lock();
 	registry_remove(body->pid, body->tid);
-	registry_unlock();
 }
 
 static void handle_mutex_register(int fd, const msg_body_mutex_register_t *body)
 {
-	/* anti-spoof: body->pid must match the connection's SO_PEERCRED pid */
 	if (fd >= 0 && fd < MAX_CLIENTS && g_fd2pid[fd] != 0 &&
 	    g_fd2pid[fd] != body->pid)
 		return;
@@ -137,9 +142,7 @@ static void handle_lock_wait(int fd, const msg_body_lock_state_t *body)
 	    g_fd2pid[fd] != body->pid)
 		return;
 
-	registry_lock();
 	registry_lock_wait(body->pid, body->tid, body->futex_addr);
-	registry_unlock();
 }
 
 static void handle_lock_acquired(int fd, const msg_body_lock_state_t *body)
@@ -148,38 +151,25 @@ static void handle_lock_acquired(int fd, const msg_body_lock_state_t *body)
 	    g_fd2pid[fd] != body->pid)
 		return;
 
-	registry_lock();
 	registry_lock_acquired(body->pid, body->tid);
-	registry_unlock();
 }
 
 static void handle_shutdown(int fd, const msg_body_shutdown_t *body)
 {
-	registry_lock();
+	/* Clean exit: drop all entries for this pid immediately. */
 	registry_cleanup_pid(body->pid);
-	registry_unlock();
 	registry_mutex_cleanup_fd(fd);
 	close(fd);
 	if (fd >= 0 && fd < MAX_CLIENTS)
 		g_fd2pid[fd] = 0;
 }
 
+/* §3.7: server only does the wiring.  It clears client_fd (preserves
+ * active=true) and lets the watchdog turn the un-attributable entry into
+ * an EXIT alert + offline-table record on its next sweep. */
 static void handle_client_disconnect(int fd)
 {
-	int i, cap;
-	Entry *entries;
-
-	/* 进程崩溃（socket 断连且未收到 MSG_SHUTDOWN）：先告警，再删除 */
-	registry_lock();
-	entries = registry_entries(&cap);
-	for (i = 0; i < cap; i++) {
-		Entry *e = &entries[i];
-		if (e->active && e->client_fd == fd)
-			alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
-	}
-	registry_cleanup_fd(fd);
-	registry_unlock();
-
+	registry_disconnect_fd(fd);
 	registry_mutex_cleanup_fd(fd);
 	close(fd);
 	if (fd >= 0 && fd < MAX_CLIENTS)
@@ -272,12 +262,10 @@ void server_run(void)
 			int fd = events[i].data.fd;
 
 			if (fd == g_listen_fd) {
-				/* accept */
 				int client = accept4(g_listen_fd, NULL, NULL,
 						    SOCK_CLOEXEC);
 				if (client < 0) continue;
 
-				/* SO_PEERCRED UID check */
 				struct ucred cred;
 				socklen_t clen = sizeof(cred);
 				if (getsockopt(client, SOL_SOCKET, SO_PEERCRED,

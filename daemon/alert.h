@@ -27,13 +27,15 @@ enum alert_type {
 	ALERT_EXIT,
 	ALERT_DEADLOCK,
 	ALERT_LOCK_WAIT,
+	ALERT_RECOVERY,   /* §8.8: NORMAL severity (syslog + log only) */
 };
 
 /**
  * @brief Alert severity.
  *
- * CRITICAL alerts are printed to stderr AND recorded to the log file;
- * NORMAL alerts are only recorded to the log file (no stderr noise).
+ * CRITICAL alerts are printed to stderr AND recorded to the log file
+ * and may invoke the external script; NORMAL alerts are only recorded
+ * to the log file (no stderr noise, no script).
  */
 enum alert_severity {
 	SEV_NORMAL,
@@ -46,9 +48,15 @@ enum alert_severity {
  * @param log_file     Optional log file path (NULL/"" = syslog only).
  */
 int  alert_init(const char *script_path, const char *log_file);
+
+/* §3.6 alert_emit — for EXIT / DEADLOCK / LOCK_WAIT. */
 void alert_emit(enum alert_type type, const Entry *e,
 		const char *wchan, uintptr_t futex_addr,
 		int64_t wait_ms, const char *futex_module,
 		const char *lock_name);
+
+/* §8.8 recovery alert (NORMAL severity).  kind = "process" or "thread". */
+void alert_emit_recovery(const char *kind,
+			 const registry_recovery_info_t *r);
 
 #endif
