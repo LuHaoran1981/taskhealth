@@ -1,0 +1,6 @@
+usr/lib/*/libtaskhealth.a
+usr/lib/*/libtaskhealth.so
+usr/lib/*/pkgconfig/taskhealth.pc
+usr/include/taskhealth.h
+usr/include/taskhealth_mutex.h
+usr/include/taskhealth/protocol.h

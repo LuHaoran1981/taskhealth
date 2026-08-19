@@ -1,0 +1,12 @@
+[Unit]
+Description=TaskHealth thread health monitoring daemon
+Documentation=man:taskhealthd(8)
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/taskhealthd
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
