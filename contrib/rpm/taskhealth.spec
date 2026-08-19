@@ -1,5 +1,5 @@
 Name:           taskhealth
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Linux thread health monitoring (client-daemon)
 
@@ -80,7 +80,7 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %files -n libtaskhealth0
 %license LICENSE.MIT
 %{_libdir}/libtaskhealth.so.0
-%{_libdir}/libtaskhealth.so.0.2.0
+%{_libdir}/libtaskhealth.so.0.2.1
 
 %files devel
 %license LICENSE.MIT
@@ -96,6 +96,10 @@ make install DESTDIR=%{buildroot} prefix=/usr
 %{_mandir}/man1/taskhealth-demo.1*
 
 %changelog
+* Wed Aug 19 2026 Lu Haoran <luhaoran1981@icloud.com> - 0.2.1-1
+- Emit UNEXPECTED_EXIT alert on process-crash disconnect
+- Add man pages and systemd service unit
+
 * Sat Aug 16 2026 Lu Haoran <luhaoran1981@icloud.com> - 0.2.0-1
 - Lock-name resolution for futex deadlock / lock-wait alerts
 - Watchdog snapshot/write-back pattern (probe without holding registry lock)

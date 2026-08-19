@@ -4,7 +4,7 @@
 #         芦浩然
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-VERSION       = 0.2.0
+VERSION       = 0.2.1
 SOVER_MAJOR   = 0
 
 CC            = gcc

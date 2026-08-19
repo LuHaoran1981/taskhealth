@@ -1,3 +1,10 @@
+taskhealth (0.2.1-1) unstable; urgency=medium
+
+  * Emit UNEXPECTED_EXIT alert on process-crash disconnect.
+  * Add man pages and systemd service unit.
+
+ -- Lu Haoran <luhaoran1981@icloud.com>  Wed, 19 Aug 2026 00:00:00 +0800
+
 taskhealth (0.2.0-1) unstable; urgency=medium
 
   * Lock-name resolution for futex deadlock / lock-wait alerts.

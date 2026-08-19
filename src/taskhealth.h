@@ -88,7 +88,7 @@ struct taskhealth_config {
 
 /* ── API ────────────────────────────────────────────────────────────── */
 
-/** @brief Return the library version string (e.g. "0.2.0"). */
+/** @brief Return the library version string (e.g. "0.2.1"). */
 const char *taskhealth_version(void);
 
 /**
