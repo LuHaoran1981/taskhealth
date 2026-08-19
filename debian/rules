@@ -6,6 +6,9 @@
 override_dh_auto_build:
 	$(MAKE) all-full
 
+override_dh_auto_test:
+	@echo "test sources excluded from release tarball; skipping dh_auto_test"
+
 override_dh_auto_install:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp prefix=/usr
 
