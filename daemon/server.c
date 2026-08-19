@@ -15,6 +15,7 @@
 #include "server.h"
 #include "taskhealth/protocol.h"
 #include "registry.h"
+#include "alert.h"
 
 #include <errno.h>
 #include <stdatomic.h>
@@ -165,9 +166,20 @@ static void handle_shutdown(int fd, const msg_body_shutdown_t *body)
 
 static void handle_client_disconnect(int fd)
 {
+	int i, cap;
+	Entry *entries;
+
+	/* 进程崩溃（socket 断连且未收到 MSG_SHUTDOWN）：先告警，再删除 */
 	registry_lock();
+	entries = registry_entries(&cap);
+	for (i = 0; i < cap; i++) {
+		Entry *e = &entries[i];
+		if (e->active && e->client_fd == fd)
+			alert_emit(ALERT_EXIT, e, NULL, 0, 0, NULL, NULL);
+	}
 	registry_cleanup_fd(fd);
 	registry_unlock();
+
 	registry_mutex_cleanup_fd(fd);
 	close(fd);
 	if (fd >= 0 && fd < MAX_CLIENTS)
@@ -286,8 +298,6 @@ void server_run(void)
 					close(client);
 					continue;
 				}
-			} else if (events[i].events & (EPOLLHUP | EPOLLERR)) {
-				handle_client_disconnect(fd);
 			} else if (events[i].events & EPOLLIN) {
 				taskhealth_msg_hdr_t hdr;
 				void *body = NULL;
@@ -335,6 +345,8 @@ void server_run(void)
 				}
 
 				free(body);
+			} else if (events[i].events & (EPOLLHUP | EPOLLERR)) {
+				handle_client_disconnect(fd);
 			}
 		}
 	}
